@@ -5,6 +5,22 @@ from matplotlib.patches import Rectangle
 import imageIO.png
 import math
 
+class Queue:
+    def __init__(self):
+        self.items = []
+
+    def isEmpty(self):
+        return self.items == []
+
+    def enqueue(self, item):
+        self.items.insert(0,item)
+
+    def dequeue(self):
+        return self.items.pop()
+
+    def size(self):
+        return len(self.items)
+
 
 def createInitializedGreyscalePixelArray(image_width, image_height, initValue = 0):
 
@@ -170,6 +186,70 @@ def computeDilation8Nbh3x3FlatSE(pixel_array, image_width, image_height):
                 dilation[i-1][j-1] = 0
     return dilation
 
+
+def computeErosion8Nbh3x3FlatSE(pixel_array, image_width, image_height):
+    Erosion = createInitializedGreyscalePixelArray(image_width, image_height)
+    for array in pixel_array:
+        array.insert(0, 0)
+        array.append(0)
+    zeros = [0] * (image_width + 2)
+    pixel_array.insert(0, zeros)
+    pixel_array.append(zeros)
+
+    for i in range(1, image_height+1):
+        for j in range(1, image_width+1):
+            if (pixel_array[i-1][j-1] != 0 and pixel_array[i-1][j] != 0 and pixel_array[i-1][j+1] != 0 and pixel_array[i][j-1] != 0 and pixel_array[i][j] != 0 and pixel_array[i][j+1] != 0 and pixel_array[i+1][j-1] != 0 and pixel_array[i+1][j] != 0 and pixel_array[i+1][j+1] != 0):
+                Erosion[i-1][j-1] = 1
+            else:
+                Erosion[i-1][j-1] = 0
+
+    return Erosion
+
+
+def computeConnectedComponentLabeling(pixel_array, image_width, image_height):
+    connected = createInitializedGreyscalePixelArray(image_width, image_height)
+    visited = createInitializedGreyscalePixelArray(image_width, image_height)
+    setter = 1
+    dictionary = dict()
+    Q = Queue()
+    
+    for i in range(1, image_height):
+        for j in range(1, image_width):
+            if pixel_array[i][j] and not visited[i][j]:
+                
+                Q.enqueue([i,j])
+                visited[i][j] = True
+                
+                while not Q.isEmpty():
+                    head = Q.dequeue()
+                    if setter not in dictionary:
+                        dictionary[setter] = 1
+                        connected[head[0]][head[1]] = setter
+                    else:
+                        dictionary[setter] += 1
+                        connected[head[0]][head[1]] = setter
+                            
+                    if head[0]-1 >= 0 and not visited[head[0]-1][head[1]] and pixel_array[head[0]-1][head[1]]:
+                        Q.enqueue([head[0]-1,head[1]])
+                        visited[head[0]-1][head[1]] = True
+                        
+                    if  head[1]-1 >= 0 and not visited[head[0]][head[1]-1] and pixel_array[head[0]][head[1]-1]:
+                        Q.enqueue([head[0],head[1]-1])
+                        visited[head[0]][head[1]-1] = True
+                        
+                    if head[0]+1 < image_height and not visited[head[0]+1][head[1]] and pixel_array[head[0]+1][head[1]]:
+                        Q.enqueue([head[0]+1,head[1]])
+                        visited[head[0]+1][head[1]] = True
+                        
+                    if  head[1]+1 < image_width and not visited[head[0]][head[1]+1] and pixel_array[head[0]][head[1]+1]:
+                        Q.enqueue([head[0],head[1]+1])
+                        visited[head[0]][head[1]+1] = True
+                setter += 1  
+                
+    return connected, dictionary
+            
+            
+
 def main():
     filename = "./images/covid19QRCode/poster1small.png"
 
@@ -199,9 +279,16 @@ def main():
     thresh = computeThresholdGE(gaussian_stretch, 80, image_width, image_height)
 
     #findhole
-    dilation = computeDilation8Nbh3x3FlatSE(thresh,image_width,image_height)
+    dilation = thresh
+    for i in range(3):
+        dilation = computeDilation8Nbh3x3FlatSE(dilation,image_width,image_height)
+
+    #connect components
+    print("finding connected")
+    connected, size = computeConnectedComponentLabeling(dilation,image_width,image_height)
+    print(size)
     #setplot figure
-    pyplot.imshow(dilation, cmap='gray')
+    pyplot.imshow(connected, cmap='gray')
 
 
     # get access to the current pyplot figure
