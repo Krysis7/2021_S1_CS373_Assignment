@@ -152,6 +152,23 @@ def computeThresholdGE(pixel_array, threshold_value, image_width, image_height):
                 threshold_array[i][j] = 255
     return threshold_array
 
+def computeDilation8Nbh3x3FlatSE(pixel_array, image_width, image_height):
+    dilation = createInitializedGreyscalePixelArray(image_width, image_height)
+    for array in pixel_array:
+        array.insert(0, 0)
+        array.append(0)
+    zeros = [0] * (image_width + 2)
+    pixel_array.insert(0, zeros)
+    pixel_array.append(zeros)
+
+    for i in range(1, image_height+1):
+        for j in range(1, image_width+1):
+            value = pixel_array[i-1][j-1] + pixel_array[i-1][j] + pixel_array[i-1][j+1] + pixel_array[i][j-1] + pixel_array[i][j] + pixel_array[i][j+1] + pixel_array[i+1][j-1] + pixel_array[i+1][j] + pixel_array[i+1][j+1]
+            if value > 0:
+                dilation[i-1][j-1] = 1
+            else:
+                dilation[i-1][j-1] = 0
+    return dilation
 
 def main():
     filename = "./images/covid19QRCode/poster1small.png"
@@ -180,8 +197,11 @@ def main():
 
     #Threshold
     thresh = computeThresholdGE(gaussian_stretch, 80, image_width, image_height)
+
+    #findhole
+    dilation = computeDilation8Nbh3x3FlatSE(thresh,image_width,image_height)
     #setplot figure
-    pyplot.imshow(thresh, cmap='gray')
+    pyplot.imshow(dilation, cmap='gray')
 
 
     # get access to the current pyplot figure
