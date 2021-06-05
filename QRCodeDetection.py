@@ -3,6 +3,7 @@ from matplotlib import pyplot
 from matplotlib.patches import Rectangle
 
 import imageIO.png
+import math
 
 
 def createInitializedGreyscalePixelArray(image_width, image_height, initValue = 0):
@@ -74,6 +75,82 @@ def writeGreyscalePixelArraytoPNG(output_filename, pixel_array, image_width, ima
     writer.write(file, pixel_array)
     file.close()
 
+#rgb to greyscale
+def computeRGBToGreyscale(pixel_array_r, pixel_array_g, pixel_array_b, image_width, image_height):  
+    greyscale_pixel_array = createInitializedGreyscalePixelArray(image_width, image_height)
+    for i in range (image_height):
+        for j in range(image_width):
+            greyscale_pixel_array[i][j] = round(.299*pixel_array_r[i][j] + .587*pixel_array_g[i][j] + .114*pixel_array_b[i][j])    
+    
+    
+    return greyscale_pixel_array
+#scale array between 0-255
+def scaleTo0And255AndQuantize(pixel_array, image_width, image_height):
+    max = 0
+    min = 99999
+    for i in range(len(pixel_array)):
+        for value in range(len(pixel_array[i])):
+            pixel = pixel_array[i][value]
+            if pixel > max:
+                max = pixel
+            if min > pixel:
+                min = pixel
+    
+    r = (max-min)
+    if r == 0:
+        c = 0
+    else:
+        c = 255/(max-min)
+    for i in range(len(pixel_array)):
+        for value in range(len(pixel_array[i])):
+            p = pixel_array[i][value]
+            pixel_array[i][value] = round(c*(p-min))
+    return pixel_array
+
+def computeHorizontalEdgesSobel(pixel_array, image_width, image_height):
+    r = createInitializedGreyscalePixelArray(image_width, image_height)
+    for i in range(1, image_height-1):
+        for j in range(1, image_width-1):
+            r[i][j] = (pixel_array[i-1][j-1] + (pixel_array[i-1][j] * 2) + pixel_array[i-1][j+1] + (pixel_array[i+1][j-1] * -1) + (pixel_array[i+1][j] * -2) + (pixel_array[i+1][j+1] * -1))/8
+    return r
+
+def computeVerticalEdgesSobel(pixel_array, image_width, image_height):
+    greyscale_pixel_array = createInitializedGreyscalePixelArray(image_width, image_height)
+    pixel_scale=[-1,0,1,-2,0,2,-1,0,1]
+    for i in range(0,image_height-2):
+        for j in range(0,image_width-2):
+            greyscale_pixel_array[i+1][j+1] = pixel_array[i][j]*pixel_scale[0]+pixel_array[i][j+1]*pixel_scale[1]+pixel_array[i][j+2]*pixel_scale[2]+pixel_array[i+1][j]*pixel_scale[3]+pixel_array[i+1][j+1]*pixel_scale[4]+pixel_array[i+1][j+2]*pixel_scale[5]+pixel_array[i+2][j]*pixel_scale[6]+pixel_array[i+2][j+1]*pixel_scale[7]+pixel_array[i+2][j+2]*pixel_scale[8]
+            greyscale_pixel_array[i+1][j+1] = (greyscale_pixel_array[i+1][j+1]/8)
+    return greyscale_pixel_array
+
+def computeGradiantMagnitude(vertical, horizontal, image_width, image_height):
+    magnitude_array = createInitializedGreyscalePixelArray(image_width, image_height)
+    for i in range(1,image_height-1):
+        for j in range(1, image_width-1):
+            magnitude_array[i][j] = math.sqrt((vertical[i][j]*vertical[i][j]) + (horizontal[i][j]*horizontal[i][j]))
+    return magnitude_array
+
+def computeGaussianAveraging3x3RepeatBorder(pixel_array, image_width, image_height):
+    gaussian_array = createInitializedGreyscalePixelArray(image_width, image_height)
+    for a in pixel_array:
+        a.insert(0, a[0])
+        a.insert(-1, a[-1])
+    pixel_array.insert(0, pixel_array[0])
+    pixel_array.insert(-1, pixel_array[-1])
+    for i in range(1, image_height+1):
+        for j in range(1, image_width+1):
+            gaussian_array[i-1][j-1] = (pixel_array[i-1][j-1] + (pixel_array[i-1][j]*2) + pixel_array[i-1][j+1] + (pixel_array[i][j-1]*2) + (pixel_array[i][j]*4)+ (pixel_array[i][j+1]*2) + pixel_array[i+1][j-1] + (pixel_array[i+1][j]*2) + pixel_array[i+1][j+1])/16    
+    return gaussian_array
+
+def computeThresholdGE(pixel_array, threshold_value, image_width, image_height):
+    threshold_array = createInitializedGreyscalePixelArray(image_width, image_height)
+    for i in range(image_height):
+        for j in range(image_width):
+            if pixel_array[i][j] < threshold_value:
+                threshold_array[i][j] = 0
+            else:
+                threshold_array[i][j] = 255
+    return threshold_array
 
 
 def main():
@@ -83,7 +160,29 @@ def main():
     # each pixel array contains 8 bit integer values between 0 and 255 encoding the color values
     (image_width, image_height, px_array_r, px_array_g, px_array_b) = readRGBImageToSeparatePixelArrays(filename)
 
-    pyplot.imshow(prepareRGBImageForImshowFromIndividualArrays(px_array_r, px_array_g, px_array_b, image_width, image_height))
+    #convert rgb to greyscale and scale it
+    greyscale = computeRGBToGreyscale(px_array_r, px_array_g, px_array_b,image_width, image_height)
+    greyscale_scaled = scaleTo0And255AndQuantize(greyscale,image_width,image_height)
+
+    #horizontal and vertical edge
+    horizontal = computeHorizontalEdgesSobel(greyscale_scaled,image_width,image_height)
+    vertical = computeVerticalEdgesSobel(greyscale_scaled,image_width,image_height)
+
+    #compute edge gradiant for the image
+    mag = computeGradiantMagnitude(vertical,horizontal,image_width, image_height)
+    
+    #Smooth over the edge mag with gaussian
+    gaussian = mag
+    for i in range(9):
+        gaussian = computeGaussianAveraging3x3RepeatBorder(gaussian,image_width,image_height)
+    gaussian_stretch = scaleTo0And255AndQuantize(gaussian,image_width,image_height)
+
+
+    #Threshold
+    thresh = computeThresholdGE(gaussian_stretch, 80, image_width, image_height)
+    #setplot figure
+    pyplot.imshow(thresh, cmap='gray')
+
 
     # get access to the current pyplot figure
     axes = pyplot.gca()
