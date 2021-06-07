@@ -259,20 +259,28 @@ def CleanArray(pixel_array, image_width, image_height, max_key):
     return clean
 
 def FindCorner(pixel_array, image_width, image_height):
-    max_cord = (-1,-1)
-    min_cord = (99999999,9999999999)
+    min_x = 99999
+    max_x = -10
+    min_y = 99999
+    max_y = -10
     for i in range(image_height):
         for j in range(image_width):
             if pixel_array[i][j] > 0:
-                cord = (j,i)
-                if cord > max_cord:
-                    max_cord = cord
-                if cord < min_cord:
-                    min_cord = cord
-    return max_cord, min_cord          
+                if j > max_x:
+                    max_x = j
+                if j < min_x:
+                    min_x = j
+                if i > max_y:
+                    max_y = i    
+                if i < min_y:
+                    min_y = i
+    return min_x, max_x, min_y, max_y          
 
 def main():
     filename = "./images/covid19QRCode/poster1small.png"
+    #filename = "./images/covid19QRCode/challenging/bch.png"
+    #filename = "./images/covid19QRCode/challenging/bloomfield.png"
+
 
     # we read in the png file, and receive three pixel arrays for red, green and blue components, respectively
     # each pixel array contains 8 bit integer values between 0 and 255 encoding the color values
@@ -292,7 +300,7 @@ def main():
     
     #Smooth over the edge mag with gaussian
     gaussian = mag
-    for i in range(9):
+    for i in range(8):
         gaussian = computeGaussianAveraging3x3RepeatBorder(gaussian,image_width,image_height)
     gaussian_stretch = scaleTo0And255AndQuantize(gaussian,image_width,image_height)
 
@@ -302,7 +310,7 @@ def main():
 
     #findhole
     dilation = thresh
-    for i in range(3):
+    for i in range(2):
         dilation = computeDilation8Nbh3x3FlatSE(dilation,image_width,image_height)
 
     #connect components
@@ -312,9 +320,9 @@ def main():
     clean = CleanArray(connected, image_width,image_height, max_key)
 
     #Finding Coordinate
-    max_cord, min_cord = FindCorner(clean,image_width,image_height)
-    rect_width = max_cord[0] - min_cord[0]
-    rect_height = max_cord[1] - min_cord[1]
+    min_x, max_x, min_y, max_y   = FindCorner(clean,image_width,image_height)
+    rect_width = max_x - min_x
+    rect_height = max_y - min_y
     
     #setplot figure
     pyplot.imshow(original, cmap='gray')
@@ -323,7 +331,7 @@ def main():
     # get access to the current pyplot figure
     axes = pyplot.gca()
     # create a 70x50 rectangle that starts at location 10,30, with a line width of 3
-    rect = Rectangle( (min_cord[0], min_cord[1]), rect_width, rect_height, linewidth=3, edgecolor='g', facecolor='none' )
+    rect = Rectangle( (min_x, min_y), rect_width, rect_height, linewidth=3, edgecolor='g', facecolor='none' )
     # paint the rectangle over the current plot
     axes.add_patch(rect)
 
