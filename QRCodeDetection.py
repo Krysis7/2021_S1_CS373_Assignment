@@ -342,7 +342,8 @@ def main():
     
     #Getting Just QR Code (EXTENSION)
     QR, width, height = GetQRpixel(original, min_x, max_x, min_y, max_y)
-
+    array = np.array(QR)
+    pyplot.imsave('QR.png', array)
     #setplot figure
     pyplot.imshow(original, cmap='gray')
 
