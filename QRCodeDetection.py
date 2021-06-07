@@ -1,7 +1,9 @@
 
 from matplotlib import pyplot
 from matplotlib.patches import Rectangle
+from pyzbar.pyzbar import decode
 
+import numpy as np
 import imageIO.png
 import math
 
@@ -276,6 +278,20 @@ def FindCorner(pixel_array, image_width, image_height):
                     min_y = i
     return min_x, max_x, min_y, max_y          
 
+def GetQRpixel(pixel_array, min_x, max_x, min_y, max_y):
+    qr = []
+    width = 0
+    height = 0
+    for i in range(min_y, max_y):
+        row = []
+        height += 1
+        width = 0
+        for j in range(min_x, max_x):
+            width += 1
+            row.append(pixel_array[i][j])
+        qr.append(row)
+    return qr, width, height
+
 def main():
     filename = "./images/covid19QRCode/poster1small.png"
     #filename = "./images/covid19QRCode/challenging/bch.png"
@@ -320,13 +336,15 @@ def main():
     clean = CleanArray(connected, image_width,image_height, max_key)
 
     #Finding Coordinate
-    min_x, max_x, min_y, max_y   = FindCorner(clean,image_width,image_height)
+    min_x, max_x, min_y, max_y = FindCorner(clean,image_width,image_height)
     rect_width = max_x - min_x
     rect_height = max_y - min_y
     
+    #Getting Just QR Code (EXTENSION)
+    QR, width, height = GetQRpixel(original, min_x, max_x, min_y, max_y)
+
     #setplot figure
     pyplot.imshow(original, cmap='gray')
-
 
     # get access to the current pyplot figure
     axes = pyplot.gca()
