@@ -247,8 +247,29 @@ def computeConnectedComponentLabeling(pixel_array, image_width, image_height):
                 setter += 1  
                 
     return connected, dictionary
-            
-            
+
+def CleanArray(pixel_array, image_width, image_height, max_key):
+    clean = createInitializedGreyscalePixelArray(image_width, image_height)
+    for i in range(image_height):
+        for j in range(image_width):
+            if pixel_array[i][j] != max_key:
+                clean[i][j] = 0
+            else:
+                clean[i][j] = 255
+    return clean
+
+def FindCorner(pixel_array, image_width, image_height):
+    max_cord = (-1,-1)
+    min_cord = (99999999,9999999999)
+    for i in range(image_height):
+        for j in range(image_width):
+            if pixel_array[i][j] > 0:
+                cord = (j,i)
+                if cord > max_cord:
+                    max_cord = cord
+                if cord < min_cord:
+                    min_cord = cord
+    return max_cord, min_cord          
 
 def main():
     filename = "./images/covid19QRCode/poster1small.png"
@@ -256,6 +277,7 @@ def main():
     # we read in the png file, and receive three pixel arrays for red, green and blue components, respectively
     # each pixel array contains 8 bit integer values between 0 and 255 encoding the color values
     (image_width, image_height, px_array_r, px_array_g, px_array_b) = readRGBImageToSeparatePixelArrays(filename)
+    original = prepareRGBImageForImshowFromIndividualArrays(px_array_r, px_array_g, px_array_b, image_width, image_height)
 
     #convert rgb to greyscale and scale it
     greyscale = computeRGBToGreyscale(px_array_r, px_array_g, px_array_b,image_width, image_height)
@@ -286,15 +308,22 @@ def main():
     #connect components
     print("finding connected")
     connected, size = computeConnectedComponentLabeling(dilation,image_width,image_height)
-    print(size)
+    max_key = max(size, key=size.get)
+    clean = CleanArray(connected, image_width,image_height, max_key)
+
+    #Finding Coordinate
+    max_cord, min_cord = FindCorner(clean,image_width,image_height)
+    rect_width = max_cord[0] - min_cord[0]
+    rect_height = max_cord[1] - min_cord[1]
+    
     #setplot figure
-    pyplot.imshow(connected, cmap='gray')
+    pyplot.imshow(original, cmap='gray')
 
 
     # get access to the current pyplot figure
     axes = pyplot.gca()
     # create a 70x50 rectangle that starts at location 10,30, with a line width of 3
-    rect = Rectangle( (10, 30), 70, 50, linewidth=3, edgecolor='g', facecolor='none' )
+    rect = Rectangle( (min_cord[0], min_cord[1]), rect_width, rect_height, linewidth=3, edgecolor='g', facecolor='none' )
     # paint the rectangle over the current plot
     axes.add_patch(rect)
 
