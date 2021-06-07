@@ -2,7 +2,9 @@
 from matplotlib import pyplot
 from matplotlib.patches import Rectangle
 from pyzbar.pyzbar import decode
+from PIL import Image
 
+import cv2
 import numpy as np
 import imageIO.png
 import math
@@ -330,7 +332,6 @@ def main():
         dilation = computeDilation8Nbh3x3FlatSE(dilation,image_width,image_height)
 
     #connect components
-    print("finding connected")
     connected, size = computeConnectedComponentLabeling(dilation,image_width,image_height)
     max_key = max(size, key=size.get)
     clean = CleanArray(connected, image_width,image_height, max_key)
@@ -343,7 +344,17 @@ def main():
     #Getting Just QR Code (EXTENSION)
     QR, width, height = GetQRpixel(original, min_x, max_x, min_y, max_y)
     array = np.array(QR)
-    pyplot.imsave('QR.png', array)
+    cv2.imwrite('QR.png', array)
+
+    #Read the QRCODE with pyzbar
+    decoded = decode(Image.open('QR.png'))
+    decoded = str(decoded)
+    
+    print('##########################################')
+    print("QR CODE INFORMATION")
+    print(decoded)
+    print('##########################################')
+
     #setplot figure
     pyplot.imshow(original, cmap='gray')
 
